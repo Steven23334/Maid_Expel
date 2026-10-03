@@ -10,34 +10,65 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-/**
- * 客户端入口：在 API 女仆界面里注入"放生"按钮。
- * <p>
- * ⚠️ 这里通过类名反射判断是否是 ApiContainerGui，
- *    避免附属模组在编译期强依赖 API 内部类。
- */
 @EventBusSubscriber(modid = MaidExpelMod.MOD_ID, value = Dist.CLIENT)
 public final class MaidExpelClient {
     private MaidExpelClient() {}
-    /** 是否是 API 的女仆界面 */
+
     private static final String API_GUI_CLASS = "ApiContainerGui";
+
+    // 按钮布局常量
+    private static final int BTN_W = 66;
+    private static final int BTN_H = 20;
+    private static final int BTN_Y = 140;
+    private static final int CANCEL_X = 110;   // 取消按钮：面板左侧
+    private static final int EXPEL_X = 180;    // 放生按钮：面板右侧
 
     @SubscribeEvent
     public static void onMaidContainerInit(MaidContainerGuiEvent.Init event) {
-        // 只在 API 界面里显示放生按钮
         if (!event.getGui().getClass().getSimpleName().equals(API_GUI_CLASS)) {
             return;
         }
-        int btnX = event.getLeftPos() + 90;
-        int btnY = event.getTopPos() + 140;
-        int btnW = 60;
-        int btnH = 20;
 
-        event.addButton("maid_expel:expel_button",
-                Button.builder(
-                        Component.translatable("maid_expel.button.expel"),
-                        b -> PacketDistributor.sendToServer(
-                                new ExpelMaidC2SPacket(event.getGui().getMaid().getId()))
-                ).pos(btnX, btnY).size(btnW, btnH).build());
+        int btnY = event.getTopPos() + BTN_Y;
+        int expelX = event.getLeftPos() + EXPEL_X;
+        int cancelX = event.getLeftPos() + CANCEL_X;
+
+        // 用数组保存引用，方便 lambda 内互相引用（lambda 捕获要求 effectively final）
+        final boolean[] confirming = {false};
+        final Button[] expelBtn = new Button[1];
+        final Button[] cancelBtn = new Button[1];
+
+        // 放生 / 确认按钮
+        expelBtn[0] = Button.builder(
+                Component.translatable("maid_expel.button.expel"),
+                b -> {
+                    if (!confirming[0]) {
+                        // 第一次点击 → 进入确认状态
+                        confirming[0] = true;
+                        expelBtn[0].setMessage(Component.translatable("maid_expel.button.expel.confirm"));
+                        cancelBtn[0].visible = true;
+                        return;
+                    }
+                    // 第二次点击 → 真正发送放生请求
+                    PacketDistributor.sendToServer(
+                            new ExpelMaidC2SPacket(event.getGui().getMaid().getId()));
+                }
+        ).pos(expelX, btnY).size(BTN_W, BTN_H).build();
+
+        // 取消按钮（初始隐藏）
+        cancelBtn[0] = Button.builder(
+                Component.translatable("maid_expel.button.cancel"),
+                b -> {
+                    confirming[0] = false;
+                    expelBtn[0].setMessage(Component.translatable("maid_expel.button.expel"));
+                    cancelBtn[0].visible = false;
+                }
+        ).pos(cancelX, btnY).size(BTN_W, BTN_H).build();
+
+        event.addButton("maid_expel:expel_button", expelBtn[0]);
+        event.addButton("maid_expel:cancel_button", cancelBtn[0]);
+
+        // 添加后再设置，防止 addButton 内部重置 visible
+        cancelBtn[0].visible = false;
     }
 }

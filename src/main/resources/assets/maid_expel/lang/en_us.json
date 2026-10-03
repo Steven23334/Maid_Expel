@@ -1,4 +1,6 @@
 {
   "maid_expel.button.expel": "§cRelease",
+  "maid_expel.button.expel.confirm": "§cConfirm Release",
+  "maid_expel.button.cancel": "Cancel",
   "maid_expel.message.expel.success": "§aMaid released, dropped %s stacks of items"
 }
