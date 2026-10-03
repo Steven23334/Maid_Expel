@@ -3,13 +3,12 @@ package com.github.steven23334.maid_expel.util;
 import com.github.tartaricacid.touhoulittlemaid.api.backpack.IMaidBackpack;
 import com.github.tartaricacid.touhoulittlemaid.entity.backpack.BackpackManager;
 import com.github.tartaricacid.touhoulittlemaid.entity.passive.EntityMaid;
+import com.github.tartaricacid.touhoulittlemaid.inventory.handler.MaidBackpackHandler;
 import net.minecraft.world.Containers;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.items.IItemHandler;
-
-import java.util.Optional;
 
 public final class MaidInventoryHelper {
     private MaidInventoryHelper() {}
@@ -19,10 +18,10 @@ public final class MaidInventoryHelper {
     public static int dropAllInventory(EntityMaid maid, Player player) {
         int[] count = {0};
 
-        // 1. 先处理背包物品本身（必须在 tryDrop(getMaidInv) 之前）
+        // 1. 先处理背包（含背包物品本身）
         dropBackpackItem(maid, player, count);
 
-        // 2. 掉落 getMaidInv() 里剩余的内容物
+        // 2. maidInv 里剩余内容物（背包内部的普通物品）
         tryDrop(maid.getMaidInv(), maid, count);
 
         // 3. TLM 饰品栏
@@ -39,31 +38,41 @@ public final class MaidInventoryHelper {
         return count[0];
     }
 
+    /**
+     * 卸下女仆当前背着的背包物品本身，并掉落。
+     * <p>
+     * 流程参考 EntityMaid#dropEquipment 里生成墓碑时的官方做法：
+     * 从 maidInv 的 BACKPACK_ITEM_SLOT 拿到背包物品，走 IMaidBackpack 的
+     * getTakeOffItemStack / onTakeOff 组合，然后重置背包类型。
+     */
     private static void dropBackpackItem(EntityMaid maid, Player player, int[] count) {
-        IItemHandler inv = maid.getMaidInv();
-        if (inv == null) {
-            return;
+        IMaidBackpack backpackType = maid.getMaidBackpackType();
+        if (backpackType == BackpackManager.getEmptyBackpack()) {
+            return;  // 女仆没背背包
         }
 
-        for (int i = 0; i < inv.getSlots(); i++) {
-            ItemStack stack = inv.getStackInSlot(i);
-            if (stack.isEmpty()) {
-                continue;
-            }
+        IItemHandler inv = maid.getMaidInv();
+        ItemStack current = inv.getStackInSlot(MaidBackpackHandler.BACKPACK_ITEM_SLOT);
 
-            Optional<IMaidBackpack> opt = BackpackManager.findBackpack(stack);
-            if (opt.isEmpty()) {
-                continue;
-            }
+        // 通过官方 API 计算"卸下后应掉落的物品"（可能保留背包等级/内容数据）
+        ItemStack toDrop = backpackType.getTakeOffItemStack(current, player, maid);
+        if (toDrop.isEmpty()) {
+            toDrop = current.copy();
+        }
 
-            opt.get().onTakeOff(stack, player, maid);
+        // 触发官方"卸下背包"回调（模型更新、事件通知等）
+        backpackType.onTakeOff(current, player, maid);
 
-            ItemStack extracted = inv.extractItem(i, stack.getCount(), false);
-            if (!extracted.isEmpty()) {
-                dropAt(maid, extracted);
-                count[0]++;
-            }
-            break;
+        // 从 maidInv 清空背包槽位
+        inv.extractItem(MaidBackpackHandler.BACKPACK_ITEM_SLOT, current.getCount(), false);
+
+        // 重置女仆的背包类型为"空背包"
+        maid.setMaidBackpackType(BackpackManager.getEmptyBackpack());
+
+        // 掉落物品
+        if (!toDrop.isEmpty()) {
+            dropAt(maid, toDrop);
+            count[0]++;
         }
     }
 

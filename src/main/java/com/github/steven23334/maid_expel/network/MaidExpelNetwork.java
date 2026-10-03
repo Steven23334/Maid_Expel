@@ -5,7 +5,11 @@ import com.github.tartaricacid.touhoulittlemaid.entity.passive.EntityMaid;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.items.ItemHandlerHelper;
+import net.neoforged.neoforge.items.wrapper.PlayerMainInvWrapper;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
@@ -64,7 +68,16 @@ public final class MaidExpelNetwork {
         maid.setInSittingPose(false);
         maid.setOrderedToSit(false);
 
-        // ===== 3. 通知玩家 =====
+        // ===== 3. 给予玩家蛋糕 =====
+        ItemStack remainder = ItemHandlerHelper.insertItemStacked(
+                new PlayerMainInvWrapper(player.getInventory()),
+                new ItemStack(Items.CAKE),
+                false);
+        if (!remainder.isEmpty()) {
+            player.drop(remainder, false);
+        }
+        dropped++;
+        // ===== 4. 通知玩家 =====
         player.displayClientMessage(
                 Component.translatable("maid_expel.message.expel.success",dropped),
                 false);
