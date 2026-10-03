@@ -67,7 +67,7 @@ public final class MaidExpelNetwork {
         maid.setTame(false, false);
         maid.setInSittingPose(false);
         maid.setOrderedToSit(false);
-g
+
         // ===== 3. 给予玩家蛋糕 =====
         ItemStack remainder = ItemHandlerHelper.insertItemStacked(
                 new PlayerMainInvWrapper(player.getInventory()),
