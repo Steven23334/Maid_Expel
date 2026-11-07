@@ -126,7 +126,7 @@ dependencies {
     // NeoForge 项目直接使用 implementation
     implementation "maven.modrinth:touhou-little-maid:1.5.3-neoforge+mc1.21.1"
 
-    compileOnly "maven.modrinth:vvuO3ImH:9.4.2+1.21.1"
+    implementation "maven.modrinth:vvuO3ImH:9.4.2+1.21.1"
 
     implementation "net.neoforged:neoforge:21.1.133"
 
